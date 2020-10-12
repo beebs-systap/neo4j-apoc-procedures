@@ -205,7 +205,7 @@ public class Util {
         return relTypes;
     }
 
-    public static <T> T retryInTx(Log log, GraphDatabaseService db, Function<Transaction, T> function, long retry, long maxRetries, Consumer<Long> callbackForRetry) {
+    private static <T> T retryInTx(Log log, GraphDatabaseService db, Function<Transaction, T> function, long retry, long maxRetries, Consumer<Long> callbackForRetry) {
         try (Transaction tx = db.beginTx()) {
             T result = function.apply(tx);
             tx.commit();
@@ -700,8 +700,7 @@ public class Util {
                 /* ignore */
             }
 
-            String role = db.executeTransactionally("CALL dbms.cluster.role($databaseName)",
-                    Collections.singletonMap("databaseName", db.databaseName()),
+            String role = db.executeTransactionally("CALL dbms.cluster.role()", Collections.emptyMap(),
                     result -> Iterators.single(result.columnAs("role")));
             return role.equalsIgnoreCase("LEADER");
         } catch(QueryExecutionException e) {
@@ -900,16 +899,5 @@ public class Util {
 
     public static void validateQuery(GraphDatabaseService db, String statement) {
         db.executeTransactionally("EXPLAIN " + statement);
-    }
-
-    /**
-     * all new threads being created within apoc should be daemon threads to allow graceful termination, so use this whenever you need a thread
-     * @param target
-     * @return
-     */
-    public static Thread newDaemonThread(Runnable target) {
-        Thread thread = new Thread(target);
-        thread.setDaemon(true);
-        return thread;
     }
 }

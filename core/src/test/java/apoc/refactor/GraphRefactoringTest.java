@@ -328,31 +328,31 @@ MATCH (a:A {prop1:1}) MATCH (b:B {prop2:99}) CALL apoc.refactor.mergeNodes([a, b
 
     @Test
     public void testCloneNodes() throws Exception {
-        Long nodeId = db.executeTransactionally("CREATE (f:Foo {name:'foo',age:42})-[:FB]->(:Bar) RETURN id(f) AS nodeId", emptyMap(),
-                result -> Iterators.single(result.columnAs("nodeId")));
-        TestUtil.testCall(db, "MATCH (n:Foo) WHERE id(n) = $nodeId CALL apoc.refactor.cloneNodes([n]) yield output as node return properties(node) as props,[(node)-[r]->() | type(r)] as types",
-                map("nodeId", nodeId),
+        Node node = db.executeTransactionally("CREATE (f:Foo {name:'foo',age:42})-[:FB]->(:Bar) RETURN f", emptyMap(),
+                result -> Iterators.single(result.columnAs("f")));
+        TestUtil.testCall(db, "CALL apoc.refactor.cloneNodes([$node]) yield output as node return properties(node) as props,[(node)-[r]->() | type(r)] as types",
+                map("node",node),
                 (row) -> {
                 assertEquals(map("name","foo","age",42L),row.get("props"));
                 assertEquals(emptyList(),row.get("types"));
                 }
         );
-        TestUtil.testCall(db, "MATCH (n:Foo) WHERE id(n) = $nodeId CALL apoc.refactor.cloneNodes([n],true,[]) yield output as node return properties(node) as props,[(node)-[r]->() | type(r)] as types",
-                map("nodeId", nodeId),
+        TestUtil.testCall(db, "CALL apoc.refactor.cloneNodes([$node],true,[]) yield output as node return properties(node) as props,[(node)-[r]->() | type(r)] as types",
+                map("node",node),
                 (row) -> {
                 assertEquals(map("name","foo","age",42L),row.get("props"));
                 assertEquals(singletonList("FB"),row.get("types"));
                 }
         );
-        TestUtil.testCall(db, "MATCH (n:Foo) WHERE id(n) = $nodeId CALL apoc.refactor.cloneNodes([n],false,[]) yield output as node return properties(node) as props,[(node)-[r]->() | type(r)] as types",
-                map("nodeId", nodeId),
+        TestUtil.testCall(db, "CALL apoc.refactor.cloneNodes([$node],false,[]) yield output as node return properties(node) as props,[(node)-[r]->() | type(r)] as types",
+                map("node",node),
                 (row) -> {
                 assertEquals(map("name","foo","age",42L),row.get("props"));
                 assertEquals(emptyList(),row.get("types"));
                 }
         );
-        TestUtil.testCall(db, "MATCH (n:Foo) WHERE id(n) = $nodeId CALL apoc.refactor.cloneNodes([n],true,['age']) yield output as node return properties(node) as props,[(node)-[r]->() | type(r)] as types",
-                map("nodeId", nodeId),
+        TestUtil.testCall(db, "CALL apoc.refactor.cloneNodes([$node],true,['age']) yield output as node return properties(node) as props,[(node)-[r]->() | type(r)] as types",
+                map("node",node),
                 (row) -> {
                 assertEquals(map("name","foo"),row.get("props"));
                 assertEquals(singletonList("FB"),row.get("types"));

@@ -1,20 +1,17 @@
 package apoc.cypher;
 
 import apoc.ApocConfig;
-import apoc.util.Util;
 import org.apache.commons.configuration2.Configuration;
 import org.neo4j.common.DependencyResolver;
-import org.neo4j.configuration.GraphDatabaseSettings;
 import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.kernel.api.procedure.GlobalProcedures;
 import org.neo4j.kernel.availability.AvailabilityListener;
 import org.neo4j.kernel.internal.GraphDatabaseAPI;
 import org.neo4j.logging.Log;
 
-import java.util.Collection;
 import java.util.ConcurrentModificationException;
-import java.util.Map;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 public class CypherInitializer implements AvailabilityListener {
 
@@ -39,32 +36,32 @@ public class CypherInitializer implements AvailabilityListener {
         return finished;
     }
 
-    public GraphDatabaseAPI getDb() {
-        return db;
-    }
-
     @Override
     public void available() {
 
         // run initializers in a new thread
         // we need to wait until apoc procs are registered
         // unfortunately an AvailabilityListener is triggered before that
-        Util.newDaemonThread(() -> {
+        new Thread(() -> {
+
             try {
-                final boolean isSystemDatabase = db.databaseName().equals(GraphDatabaseSettings.SYSTEM_DATABASE_NAME);
-                if (!isSystemDatabase) {
-                    awaitApocProceduresRegistered();
-                }
+                awaitApocProceduresRegistered();
                 Configuration config = dependencyResolver.resolveDependency(ApocConfig.class).getConfig();
 
-                for (String query : collectInitializers(isSystemDatabase, config)) {
+                TreeMap<String, String> initializers = Iterators.stream(config.getKeys(ApocConfig.APOC_CONFIG_INITIALIZER_CYPHER))
+                        .collect(Collectors.toMap(k -> k, k -> config.getString(k),
+                                (v1, v2) -> {
+                                    throw new RuntimeException(String.format("Duplicate key for values %s and %s", v1, v2));
+                                },
+                                TreeMap::new));
+
+                for (Object initializer: initializers.values()) {
+                    String query = initializer.toString();
                     try {
-                        // we need to apply a retry strategy here since in systemdb we potentially conflict with
-                        // creating constraints which could cause our query to fail with a transient error.
-                        Util.retryInTx(userLog, db, tx -> Iterators.count(tx.execute(query)), 0, 5, retries -> { });
+                        db.executeTransactionally(query);
                         userLog.info("successfully initialized: " + query);
                     } catch (Exception e) {
-                        userLog.error("error upon initialization, running: " + query, e);
+                        userLog.warn("error upon initialization, running: "+query, e);
                     }
                 }
             } finally {
@@ -73,30 +70,13 @@ public class CypherInitializer implements AvailabilityListener {
         }).start();
     }
 
-    private Collection<String> collectInitializers(boolean isSystemDatabase, Configuration config) {
-        Map<String, String> initializers = new TreeMap<>();
-
-        config.getKeys(ApocConfig.APOC_CONFIG_INITIALIZER + "." + db.databaseName())
-                .forEachRemaining(key -> putIfNotBlank(initializers, key, config.getString(key)));
-
-        // add legacy style initializers
-        if (!isSystemDatabase) {
-            config.getKeys(ApocConfig.APOC_CONFIG_INITIALIZER_CYPHER)
-                    .forEachRemaining(key -> initializers.put(key, config.getString(key)));
-        }
-
-        return initializers.values();
-    }
-
-    private void putIfNotBlank(Map<String,String> map, String key, String value) {
-        if ((value!=null) && (!value.isBlank())) {
-            map.put(key, value);
-        }
-    }
-
     private void awaitApocProceduresRegistered() {
         while (!areApocProceduresRegistered()) {
-            Util.sleep(100);
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 

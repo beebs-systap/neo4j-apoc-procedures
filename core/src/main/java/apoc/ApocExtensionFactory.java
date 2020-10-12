@@ -1,13 +1,13 @@
 package apoc;
 
+import apoc.cypher.CypherInitializer;
+import apoc.trigger.TriggerHandler;
 import apoc.util.ApocUrlStreamHandlerFactory;
-import org.neo4j.annotations.service.ServiceProvider;
 import org.neo4j.dbms.api.DatabaseManagementService;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.internal.kernel.api.Procedures;
 import org.neo4j.kernel.api.procedure.GlobalProcedures;
 import org.neo4j.kernel.availability.AvailabilityGuard;
-import org.neo4j.kernel.availability.AvailabilityListener;
 import org.neo4j.kernel.extension.ExtensionFactory;
 import org.neo4j.kernel.extension.ExtensionType;
 import org.neo4j.kernel.extension.context.ExtensionContext;
@@ -17,13 +17,10 @@ import org.neo4j.kernel.lifecycle.LifecycleAdapter;
 import org.neo4j.logging.Log;
 import org.neo4j.logging.internal.LogService;
 import org.neo4j.scheduler.JobScheduler;
-import org.neo4j.service.Services;
 
 import java.net.URL;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 import static org.neo4j.configuration.GraphDatabaseSettings.SYSTEM_DATABASE_NAME;
@@ -32,7 +29,6 @@ import static org.neo4j.configuration.GraphDatabaseSettings.SYSTEM_DATABASE_NAME
  * @author mh
  * @since 14.05.16
  */
-@ServiceProvider
 public class ApocExtensionFactory extends ExtensionFactory<ApocExtensionFactory.Dependencies> {
 
     static {
@@ -55,7 +51,7 @@ public class ApocExtensionFactory extends ExtensionFactory<ApocExtensionFactory.
         DatabaseManagementService databaseManagementService();
         ApocConfig apocConfig();
         GlobalProcedures globalProceduresRegistry();
-        RegisterComponentFactory.RegisterComponentLifecycle registerComponentLifecycle();
+        CoreRegisterComponentFactory.RegisterComponentLifecycle registerComponentLifecycle();
         Pools pools();
     }
 
@@ -74,17 +70,11 @@ public class ApocExtensionFactory extends ExtensionFactory<ApocExtensionFactory.
         private final Dependencies dependencies;
         private final Map<String, Lifecycle> services = new HashMap<>();
 
-        // maps a component class to database name to resolver
-        private final Map<Class, Map<String, Object>> resolvers = new ConcurrentHashMap<>();
-        private final Collection<ApocGlobalComponents> apocGlobalComponents;
-
-
-        public ApocLifecycle(LogService log, GraphDatabaseAPI db, Dependencies dependencies) {
-            this.log = log;
+        public ApocLifecycle(LogService userLog, GraphDatabaseAPI db, Dependencies dependencies) {
+            this.log = userLog;
             this.db = db;
             this.dependencies = dependencies;
-            this.userLog = log.getUserLog(ApocExtensionFactory.class);
-            this.apocGlobalComponents = Services.loadAll(ApocGlobalComponents.class);
+            this.userLog = userLog.getUserLog(ApocExtensionFactory.class);
         }
 
         public static void withNonSystemDatabase(GraphDatabaseService db, Consumer<Void> consumer) {
@@ -96,17 +86,20 @@ public class ApocExtensionFactory extends ExtensionFactory<ApocExtensionFactory.
         @Override
         public void init() throws Exception {
             withNonSystemDatabase(db, aVoid -> {
+                services.put("trigger", new TriggerHandler(db,
+                        dependencies.databaseManagementService(),
+                        dependencies.apocConfig(),
+                        log.getUserLog(TriggerHandler.class),
+                        dependencies.globalProceduresRegistry(),
+                        dependencies.pools())
+                );
 
-                for (ApocGlobalComponents c: apocGlobalComponents) {
-                    services.putAll(c.getServices(db, dependencies));
-                }
-
+                CoreRegisterComponentFactory.RegisterComponentLifecycle registerComponentLifecycle = dependencies.registerComponentLifecycle();
                 String databaseName = db.databaseName();
-                services.values().forEach(lifecycle -> dependencies.registerComponentLifecycle().addResolver(
+                services.values().forEach(lifecycle -> registerComponentLifecycle.addResolver(
                         databaseName,
                         lifecycle.getClass(),
                         lifecycle));
-
             });
         }
 
@@ -121,14 +114,10 @@ public class ApocExtensionFactory extends ExtensionFactory<ApocExtensionFactory.
                     }
                 });
 
-            });
+                AvailabilityGuard availabilityGuard = dependencies.availabilityGuard();
+                availabilityGuard.addListener(new CypherInitializer(db, log.getUserLog(CypherInitializer.class)));
 
-            AvailabilityGuard availabilityGuard = dependencies.availabilityGuard();
-            for (ApocGlobalComponents c: apocGlobalComponents) {
-                for (AvailabilityListener listener: c.getListeners(db, dependencies)) {
-                    availabilityGuard.addListener(listener);
-                }
-            }
+            });
         }
 
         @Override

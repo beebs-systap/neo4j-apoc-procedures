@@ -2,6 +2,8 @@
 = Loading Data from Web-APIs
 :description: This section gives an overview of procedures that can be used to load data from Web-APIs into Neo4j.
 
+
+
 Supported protocols are `file`, `http`, `https`, `s3`, `gs`, `hdfs` with redirect allowed.
 
 If no procedure is provided, this procedure will try to check whether the URL is actually a file.
@@ -19,7 +21,7 @@ If you want to remove these constraints please set `apoc.import.file.use_neo4j_c
 | CALL apoc.load.csv('url',{sep:";"}) YIELD lineNo, list, strings, map, stringMap | load CSV fom URL as stream of values +
 config contains any of: `{skip:1,limit:5,header:false,sep:'TAB',ignore:['aColumn'],arraySep:';',results:['map','list','strings','stringMap'], +
 nullValues:[''],mapping:{years:{type:'int',arraySep:'-',array:false,name:'age',ignore:false,nullValues:['n.A.']}}`
-| CALL apoc.load.xls('url','Sheet'/'Sheet!A2:B5',\{config}) YIELD lineNo, list, map | load XLS fom URL as stream of values +
+| CALL apoc.load.xls('url','Sheet'/'Sheet!A2:B5',{config}) YIELD lineNo, list, map | load XLS fom URL as stream of values +
 config contains any of: `{skip:1,limit:5,header:false,ignore:['aColumn'],arraySep:';'+
 nullValues:[''],mapping:{years:{type:'int',arraySep:'-',array:false,name:'age',ignore:false,nullValues:['n.A.']}}`
 |===
@@ -53,10 +55,12 @@ Once those files have been copied we'll need to restart the database.
 
 The S3 URL must be in the following format:
 
-* `s3://accessKey:secretKey@endpoint:port/bucket/key`
-or
-* `s3://endpoint:port/bucket/key?accessKey=accessKey&secretKey=secretKey`
-
+* `s3://accessKey:secretKey[:sessionToken]@endpoint:port/bucket/key`
+(sessionToken is optional) or
+* `s3://endpoint:port/bucket/key?accessKey=accessKey&secretKey=secretKey[&sessionToken=sessionToken]`
+(sessionToken is optional) or
+* `s3://endpoint:port/bucket/key`
+if the accessKey, secretKey, and the optional sessionToken are provided in the environment variables
 
 == Using Google Cloud Storage
 

@@ -282,7 +282,7 @@ public class XmlGraphMLReader {
                 String el = ":";
                 String typeRel = value.contains(el) ? value.replace(el, StringUtils.EMPTY) : value;
                 return RelationshipType.withName(typeRel.trim());
-            } else if (!peek.isEndDocument()) {
+            } else {
                 reader.nextEvent();
                 return getRelationshipType(reader);
             }

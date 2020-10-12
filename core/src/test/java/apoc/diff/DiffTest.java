@@ -4,7 +4,6 @@ import apoc.util.TestUtil;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
-import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.internal.helpers.collection.Iterators;
@@ -34,16 +33,16 @@ public class DiffTest {
         TestUtil.registerProcedure(db, Diff.class);
 
         try (Transaction tx = db.beginTx()) {
-            node1 = tx.createNode(Label.label("Node1"));
+            node1 = tx.createNode();
             node1.setProperty("prop1", "val1");
             node1.setProperty("prop2", 2L);
 
-            node2 = tx.createNode(Label.label("Node2"));
+            node2 = tx.createNode();
             node2.setProperty("prop1", "val1");
             node2.setProperty("prop2", 2L);
             node2.setProperty("prop4", "four");
 
-            node3 = tx.createNode(Label.label("Node3"));
+            node3 = tx.createNode();
             node3.setProperty("prop1", "val1");
             node3.setProperty("prop3", "3");
             node3.setProperty("prop4", "for");
@@ -59,7 +58,7 @@ public class DiffTest {
 
         Map<String, Object> result =
                 db.executeTransactionally(
-                        "MATCH (node:Node1) RETURN apoc.diff.nodes(node, node) as diff", new HashMap<>(),
+                        "RETURN apoc.diff.nodes($leftNode, $rightNode) as diff", params,
                         r -> Iterators.single(r.columnAs("diff")));
         assertNotNull(result);
 
@@ -86,7 +85,7 @@ public class DiffTest {
 
         Map<String, Object> result =
                 db.executeTransactionally(
-                        "MATCH (leftNode:Node2), (rightNode:Node3) RETURN apoc.diff.nodes(leftNode, rightNode) as diff", new HashMap<>(),
+                        "RETURN apoc.diff.nodes($leftNode, $rightNode) as diff", params,
                         r -> Iterators.single(r.columnAs("diff")));
         assertNotNull(result);
 

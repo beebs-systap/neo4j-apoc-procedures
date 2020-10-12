@@ -66,7 +66,7 @@ public class TTLLifeCycle extends LifecycleAdapter {
 
     public void createTTLIndex() {
         try {
-            db.executeTransactionally("call apoc.schema.assert({ TTL: ['ttl'] }, null, false)");
+            db.executeTransactionally("CREATE INDEX ON :TTL(ttl)");
         } catch (Exception e) {
             log.error("TTL: Error creating index", e);
         }

@@ -125,12 +125,12 @@ public class DocsTest {
                         .filter((key) -> Pattern.compile(key).matcher(row.name).matches())
                         .map(value -> String.format("xref::%s", docs.get(value)))
                         .findFirst();
-                String description = row.description.replaceAll("(\\{[a-zA-Z0-9_][a-zA-Z0-9_-]+})", "\\\\$1");
+
                 writer.write(String.format("¦%s¦%s¦%s¦%s¦%s¦%s\n",
                         row.type,
                         row.name,
                         row.signature,
-                        description,
+                        row.description,
                         !extended.contains(row.name),
                         documentation.orElse("")));
             }
@@ -161,13 +161,10 @@ public class DocsTest {
 
                     for (Row row : topLevelNamespaces.get(topLevelNamespace)) {
                         String releaseType = extended.contains(row.name) ? "full" : "core";
-                        String description = row.description
-                                .replace("|", "\\|")
-                                .replaceAll("(\\{[a-zA-Z0-9_][a-zA-Z0-9_-]+})", "\\\\$1");
-                        sectionWriter.write(String.format("|%s\n|%s\n|%s\n",
-                                String.format("xref::%s[%s icon:book[]]\n\n%s", "overview/" + topLevelNamespace + "/" + row.name + ".adoc", row.name, description),
-                                String.format("label:%s[]", row.type),
-                                String.format("label:apoc-%s[]", releaseType)));
+                        sectionWriter.write(String.format("|%s|%s|%s\n",
+                                String.format("xref::%s[%s icon:book[]]\n\n%s", "overview/" + topLevelNamespace + "/" + row.name + ".adoc", row.name, row.description.replace("|", "\\|")),
+                                String.format("label:%s[]\n", row.type),
+                                String.format("label:apoc-%s[]\n", releaseType)));
                     }
 
                     sectionWriter.write(footer());
@@ -187,13 +184,10 @@ public class DocsTest {
                     navWriter.write("** xref::overview/" + topLevelNamespace + "/index.adoc[]\n");
                     for (Row row : topLevelNamespaces.get(topLevelNamespace)) {
                         String releaseType = extended.contains(row.name) ? "full" : "core";
-                        String description = row.description
-                                .replace("|", "\\|")
-                                .replaceAll("(\\{[a-zA-Z0-9_][a-zA-Z0-9_-]+})", "\\\\$1");
-                        overviewWriter.write(String.format("|%s\n|%s\n|%s\n",
-                                String.format("%s[%s icon:book[]]\n\n%s", "xref::overview/" + topLevelNamespace + "/" + row.name + ".adoc", row.name, description),
-                                String.format("label:%s[]", row.type),
-                                String.format("label:apoc-%s[]", releaseType)));
+                        overviewWriter.write(String.format("|%s|%s|%s\n",
+                                String.format("%s[%s icon:book[]]\n\n%s", "xref::overview/" + topLevelNamespace + "/" + row.name + ".adoc", row.name, row.description.replace("|", "\\|")),
+                                String.format("label:%s[]\n", row.type),
+                                String.format("label:apoc-%s[]\n", releaseType)));
                         navWriter.write("*** xref::overview/" + topLevelNamespace + "/" + row.name  + ".adoc[]\n");
                     }
 
@@ -227,13 +221,7 @@ public class DocsTest {
                 String release = extended.contains(procedure.name().toString()) ? "full" : "core";
 
                 writer.write("label:procedure[] label:apoc-" + release + "[]\n\n");
-
-                String description = procedure.description()
-                        .orElse("")
-                        .replaceAll("(\\{[a-zA-Z0-9_][a-zA-Z0-9_-]+})", "\\\\$1");
-                if (!description.isBlank()) {
-                    writer.write("[.emphasis]\n" + description.trim() + "\n\n");
-                }
+                writer.write("[.emphasis]\n" + procedure.description().orElse("") + "\n\n");
 
                 writer.write("== Signature\n\n");
                 writer.write("[source]\n----\n" + procedure.toString() + "\n----\n\n");
@@ -295,12 +283,7 @@ public class DocsTest {
 
                 writer.write("label:function[] label:apoc-" + release + "[]\n\n");
 
-                String description = userFunctionSignature.description()
-                        .orElse("")
-                        .replaceAll("(\\{[a-zA-Z0-9_][a-zA-Z0-9_-]+})", "\\\\$1");
-                if (!description.isBlank()) {
-                    writer.write("[.emphasis]\n" + description.trim() + "\n\n");
-                }
+                writer.write("[.emphasis]\n" + userFunctionSignature.description().orElse("") + "\n\n");
 
                 writer.write("== Signature\n\n");
                 writer.write("[source]\n----\n" + userFunctionSignature.toString() + "\n----\n\n");
@@ -347,8 +330,7 @@ public class DocsTest {
             {
                 writer.write("¦type¦qualified name¦signature¦description\n");
                 for (Row row : record.getValue()) {
-                    String description = row.description.replaceAll("(\\{[a-zA-Z0-9_][a-zA-Z0-9_-]+})", "\\\\$1");
-                    writer.write(String.format("¦%s¦%s¦%s¦%s\n", row.type, row.name, row.signature, description));
+                    writer.write(String.format("¦%s¦%s¦%s¦%s\n", row.type, row.name, row.signature, row.description));
                 }
 
             }
@@ -362,8 +344,7 @@ public class DocsTest {
             try (Writer writer = new OutputStreamWriter(new FileOutputStream(new File(GENERATED_DOCUMENTATION_DIR, String.format("%s.csv", row.name))), StandardCharsets.UTF_8)) {
                 writer.write("¦type¦qualified name¦signature¦description\n");
 
-                String description = row.description.replaceAll("(\\{[a-zA-Z0-9_][a-zA-Z0-9_-]+})", "\\\\$1");
-                writer.write(String.format("¦%s¦%s¦%s¦%s\n", row.type, row.name, row.signature, description));
+                writer.write(String.format("¦%s¦%s¦%s¦%s\n", row.type, row.name, row.signature, row.description));
             } catch (Exception e) {
                 throw new RuntimeException(e.getMessage(), e);
             }
@@ -429,7 +410,7 @@ public class DocsTest {
         docs.put("apoc.nlp.aws.*", "nlp/aws.adoc");
         docs.put("apoc.nlp.gcp.*", "nlp/gcp.adoc");
         docs.put("apoc.nlp.azure.*", "nlp/azure.adoc");
-        docs.put("apoc.neighbors.*", "graph-querying/neighborhood.adoc");
+        docs.put("apoc.neighbors.*", "graph-querying/neighborhood-search.adoc");
         docs.put("apoc.monitor.*", "database-introspection/monitoring.adoc");
         docs.put("apoc.periodic.iterate", "graph-updates/periodic-execution.adoc#commit-batching");
         docs.put("apoc.periodic.commit", "graph-updates/periodic-execution.adoc#periodic-commit");
@@ -444,7 +425,7 @@ public class DocsTest {
         docs.put("apoc.spatial.*", "misc/spatial.adoc");
         docs.put("apoc.schema.*", "indexes/schema-index-operations.adoc");
         docs.put("apoc.search.node.*", "graph-querying/parallel-node-search.adoc");
-        docs.put("apoc.trigger.*", "background-operations/triggers.adoc");
+        docs.put("apoc.trigger.*", "job-management/triggers.adoc");
         docs.put("apoc.ttl.*", "graph-updates/ttl.adoc");
         docs.put("apoc.create.uuid", "graph-updates/uuid.adoc");
         docs.put("apoc.cypher.*", "cypher-execution/index.adoc");
@@ -453,7 +434,7 @@ public class DocsTest {
         docs.put("apoc.temporal.*", "temporal/temporal-conversions.adoc");
         docs.put("apoc.uuid.*", "graph-updates/uuid.adoc");
         docs.put("apoc.systemdb.*", "database-introspection/systemdb.adoc");
-        docs.put("apoc.periodic.submit|apoc.periodic.schedule|apoc.periodic.list|apoc.periodic.countdown", "background-operations/periodic-background.adoc");
+        docs.put("apoc.periodic.submit|apoc.periodic.schedule|apoc.periodic.list|apoc.periodic.countdown", "job-management/periodic-background.adoc");
         docs.put("apoc.model.jdbc", "database-integration/database-modeling.adoc");
         docs.put("apoc.algo.*", "algorithms/path-finding-procedures.adoc");
         docs.put("apoc.atomic.*", "graph-updates/atomic-updates.adoc");
